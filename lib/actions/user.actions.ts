@@ -83,3 +83,20 @@ export async function getLoggedInUser() {
     return null;
   }
 }
+
+/**
+ * This function Logs user out by deleting the appwrite session cookie from the browser.
+ * 
+ * @returns null if any error occurss during the logout process.
+ */
+export const logoutAccount = async () => {
+  try {
+    const { account } = await createSessionClient();
+
+    cookies().delete('appwrite-session');
+
+    await account.deleteSession('current');
+  } catch (error) {
+    return null;
+  }
+}
