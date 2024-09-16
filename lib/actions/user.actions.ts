@@ -80,6 +80,7 @@ export async function getLoggedInUser() {
     // Returns the user information
     return parseStringify(user);
   } catch (error) {
+    console.log(error);
     return null;
   }
 }

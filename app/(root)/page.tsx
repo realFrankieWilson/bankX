@@ -5,6 +5,7 @@ import { getLoggedInUser } from '@/lib/actions/user.actions';
 
 const Home = async () => {
     const loggedIn = await getLoggedInUser();
+
     return (
         <section className='home'>
             <div className='home-content'>
@@ -13,7 +14,7 @@ const Home = async () => {
                     <HeaderBox 
                     type="greeting"
                     title="Hi,"
-                    user={`${loggedIn?.name} 👋` || 'Guest  👋'}
+                    user={loggedIn?.name || 'Guest'}
                     subtext="Welcome back to BankX, your secure financial hub. Let’s make today a productive one!
 "
                     />
