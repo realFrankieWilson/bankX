@@ -11,9 +11,11 @@ import { ID } from "node-appwrite";
 import { createAdminClient, createSessionClient  } from "../appwrite";
 import { cookies } from "next/headers";
 import { parseStringify } from "../utils";
-import { CountryCode, Products } from "plaid";
+import { CountryCode, ProcessorTokenCreateRequest, ProcessorTokenCreateRequestProcessorEnum, Products } from "plaid";
 
 import { plaidClient } from '@/lib/plaid';
+import { revalidatePath } from "next/cache";
+import { addFundingSource } from "./dwolla.actions";
 
 export const signIn = async ( { email, password }: signInProps) => {
   try {
@@ -149,6 +151,26 @@ export const exchangePublicToken = async ({
     const accountsResponse = await plaidClient.accountsGet({
       access_token: accessToken,
     });
+
+    // Generate a Dwolla processor token with the access token and account ID
+    const request: ProcessorTokenCreateRequest = {
+      access_token: accessToken,
+      account_id: accountData.account_id,
+      processor: "dwolla" as ProcessorTokenCreateRequestProcessorEnum,
+    };
+
+    const processorTokenResponse = await plaidClient.processorTokenCreate(request);
+    const processorToken = processorTokenResponse.data.processor_token;
+
+    // Attach a funding source to the Dwolla customer using the processor token and bank name
+    const fundingSourceUrl = await addFundingSource({
+      dwollaCustomerId: user.dwollaCustomerId,
+      processorToken,
+      bankName: accountData.name,
+    });
+
+    // If no funding source URL is returned, trigger an error
+    if (!fundingSourceUrl) throw Error;
 
   } catch (error) {
     // Log any errors encountered during the process
