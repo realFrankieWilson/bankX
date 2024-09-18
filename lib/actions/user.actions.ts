@@ -11,7 +11,9 @@ import { ID } from "node-appwrite";
 import { createAdminClient, createSessionClient  } from "../appwrite";
 import { cookies } from "next/headers";
 import { parseStringify } from "../utils";
+import { CountryCode, Products } from "plaid";
 
+import { plaidClient } from '@/lib/plaid';
 
 export const signIn = async ( { email, password }: signInProps) => {
   try {
@@ -99,5 +101,29 @@ export const logoutAccount = async () => {
     await account.deleteSession('current');
   } catch (error) {
     return null;
+  }
+}
+/**
+ * This function creates a Plaid link token for a user, which is needed to connect bank accounts.
+ * 
+ * It takes user information, sends it to the Plaid API, and returns the generated link token.
+ */
+export const createLinkToken = async (user: User) => {
+  try {
+    const tokenParams = {
+      user: {
+        client_user_id: user.$id
+      },
+      client_name: `${user.firstName} ${user.lastName}`,
+      products: ['auth'] as Products[],
+      language: 'en',
+      country_codes: ['US'] as CountryCode[],
+    }
+
+    const response = await plaidClient.linkTokenCreate(tokenParams);
+
+    return parseStringify({ linkToken: response.data.link_token })
+  } catch (error) {
+    console.log(error);
   }
 }
