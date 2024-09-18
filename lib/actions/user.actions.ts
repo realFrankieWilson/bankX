@@ -130,6 +130,7 @@ export const createLinkToken = async (user: User) => {
 /**
  * This function exchanges a Plaid public token for an access token, retrieves account info, creates a processor token.
  * 
+ * adds a funding source, and creates a bank account. It returns a success message or logs an error if one occurs.
  */
 export const exchangePublicToken = async ({
   publicToken,
@@ -140,6 +141,15 @@ export const exchangePublicToken = async ({
     const response = await plaidClient.itemPublicTokenExchange({
       public_token: publicToken,
     });
+
+    const accessToken = response.data.access_token;
+    const itemId = response.data.item_id;
+    
+    // Use the access token to retrieve account details from Plaid
+    const accountsResponse = await plaidClient.accountsGet({
+      access_token: accessToken,
+    });
+
   } catch (error) {
     // Log any errors encountered during the process
     console.error("An error occurred while exchanging the token:", error);
