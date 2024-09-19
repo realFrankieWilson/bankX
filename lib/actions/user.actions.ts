@@ -151,7 +151,8 @@ export const exchangePublicToken = async ({
     const accountsResponse = await plaidClient.accountsGet({
       access_token: accessToken,
     });
-
+    const accountData = accountsResponse.data.accounts[0];
+    
     // Generate a Dwolla processor token with the access token and account ID
     const request: ProcessorTokenCreateRequest = {
       access_token: accessToken,
