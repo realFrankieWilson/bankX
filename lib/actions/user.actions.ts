@@ -10,12 +10,20 @@
 import { ID } from "node-appwrite";
 import { createAdminClient, createSessionClient  } from "../appwrite";
 import { cookies } from "next/headers";
-import { parseStringify } from "../utils";
+import { encryptId, extractCustomerIdFromUrl, parseStringify } from "../utils";
 import { CountryCode, ProcessorTokenCreateRequest, ProcessorTokenCreateRequestProcessorEnum, Products } from "plaid";
 
 import { plaidClient } from '@/lib/plaid';
 import { revalidatePath } from "next/cache";
-import { addFundingSource } from "./dwolla.actions";
+import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
+import { Database } from "lucide-react";
+
+const {
+  APPRITE_DATABASE_ID : DATABASE_ID,
+  APPWRITE_USER_COLLECTION_ID : USER_COLLECTION_ID,
+  APPWRITE_BANK_COLLECTION_ID : BANK_COLLECTION_ID,
+
+} = process.env;
 
 export const signIn = async ( { email, password }: signInProps) => {
   try {
@@ -39,13 +47,43 @@ export const signIn = async ( { email, password }: signInProps) => {
  * @returns {Promise<Object | void>} - The created user account or void if an error occurs.
  */
 export const signUp = async (userData: SignUpParams) => {
+  const { email, password, firstName, lastName } = userData;
+
+  let newUserAccount;
+
   try {
     // Create an admin client for privileged access to user management
-    const { account } = await createAdminClient();
-    const { email, password, firstName, lastName } = userData
+    const { account, database } = await createAdminClient();
 
-    // Create a new user account
-    const newUserAccount = await account.create(ID.unique(),email, password,`${firstName} ${lastName}`);
+    newUserAccount = await account.create(
+      ID.unique(), 
+      email, 
+      password, 
+      `${firstName} ${lastName}`
+    );
+    
+    if(!newUserAccount) throw new Error('Error creating user')
+
+    const dwollaCustomerUrl = await createDwollaCustomer({
+      ...userData,
+      type: 'personal'
+    })
+  
+    if(!dwollaCustomerUrl) throw new Error('Error creating Dwolla customer')
+  
+    const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
+  
+      const newUser = await database.createDocument(
+        DATABASE_ID!,
+        USER_COLLECTION_ID!,
+        ID.unique(),
+        {
+          ...userData,
+          userId: newUserAccount.$id,
+          dwollaCustomerId,
+          dwollaCustomerUrl
+        }
+      )
 
     // Create a session for the newly created user
     const session = await account.createEmailPasswordSession(email, password);
@@ -59,7 +97,7 @@ export const signUp = async (userData: SignUpParams) => {
     });
 
     // Return the new user account information, parsed for JSON serialization
-    return parseStringify(newUserAccount);
+    return parseStringify(newUser);
   } catch (error) {
     console.error('Error during sign-up:', error);
   }
@@ -129,6 +167,38 @@ export const createLinkToken = async (user: User) => {
     console.log(error);
   }
 }
+
+export const createBankAccount = async ({
+  userId,
+  bankId,
+  accountId,
+  accessToken,
+  fundingSourceUrl,
+  shareableId,
+}: createBankAccountProps) => {
+  try {
+    const { database } = await createAdminClient();
+
+    const bankAccount = await database.createDocument(
+      DATABASE_ID!,
+      BANK_COLLECTION_ID!,
+      ID.unique(),
+      {
+        userId,
+        bankId,
+        accountId,
+        accessToken,
+        fundingSourceUrl,
+        shareableId,
+      }
+    )
+
+    return parseStringify(bankAccount);
+  } catch (error) {
+    console.log(error);
+  }
+}
+
 /**
  * This function exchanges a Plaid public token for an access token, retrieves account info, creates a processor token.
  * 
@@ -152,7 +222,7 @@ export const exchangePublicToken = async ({
       access_token: accessToken,
     });
     const accountData = accountsResponse.data.accounts[0];
-    
+
     // Generate a Dwolla processor token with the access token and account ID
     const request: ProcessorTokenCreateRequest = {
       access_token: accessToken,
@@ -172,6 +242,24 @@ export const exchangePublicToken = async ({
 
     // If no funding source URL is returned, trigger an error
     if (!fundingSourceUrl) throw Error;
+
+    // Register a bank account in the system using various details such as userId, itemId, access token and account ID
+    await createBankAccount({
+      userId: user.$id,
+      bankId: itemId,
+      accountId: accountData.account_id,
+      accessToken,
+      fundingSourceUrl,
+      shareableId: encryptId(accountData.account_id),
+    });
+
+    // Refresh the path once the bank account has been successfully created
+    revalidatePath("/");
+
+    // Send a completion message indicating the token exchange process is done
+    return parseStringify({
+      publicTokenExchange: "complete",
+    });
 
   } catch (error) {
     // Log any errors encountered during the process
