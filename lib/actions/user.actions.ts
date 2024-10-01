@@ -200,7 +200,7 @@ export const exchangePublicToken = async ({
       public_token: publicToken,
     });
 
-    const accessToken = response.data.item_id;
+    const accessToken = response.data.access_token;
     const itemId = response.data.item_id;
 
     // Get account information from Plaid, using the access token
