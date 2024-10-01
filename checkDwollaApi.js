@@ -1,5 +1,6 @@
 require('dotenv').config();
 const fetch = require('node-fetch');
+
 const getAccessToken = async () => {
   const response = await fetch(`${process.env.DWOLLA_BASE_URL}/token`, {
     method: 'POST',
@@ -12,6 +13,7 @@ const getAccessToken = async () => {
       client_secret: process.env.DWOLLA_SECRET,
     }),
   });
+
   if (response.ok) {
     const data = await response.json();
     return data.access_token;
@@ -19,6 +21,7 @@ const getAccessToken = async () => {
     throw new Error('Failed to obtain access token');
   }
 };
+
 const checkDwollaApi = async () => {
   try {
     const accessToken = await getAccessToken();
@@ -29,6 +32,7 @@ const checkDwollaApi = async () => {
         'Content-Type': 'application/json',
       },
     });
+
     if (response.ok) {
       const data = await response.json();
       console.log('API is reachable:', data);
@@ -39,4 +43,5 @@ const checkDwollaApi = async () => {
     console.error('Error reaching the API:', error);
   }
 };
+
 checkDwollaApi();
