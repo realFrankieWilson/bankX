@@ -3,6 +3,7 @@ import HeaderBox from '@/components/HeaderBox';
 import RightSidebar from '@/components/RightSidebar';
 import { getLoggedInUser } from '@/lib/actions/user.actions';
 import { getAccount, getAccounts } from '@/lib/actions/bank.actions';
+import RecentTransactions from '@/components/RecentTransactions';
 // import RecentTransactions from '@/components/RecentTransactions';
 
 /**
@@ -57,12 +58,12 @@ const Home = async ({ searchParams: { id, page } }: SearchParamProps) => {
           />
         </header>
 
-        {/* <RecentTransactions
+        <RecentTransactions
           accounts={accountData}
           transactions={account?.transactions}
           appwriteItemId={appwriteItemId}
           page={currentPage}
-        /> */}
+        />
       </div>
 
       {/* Right Hand Side data */}
